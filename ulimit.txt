@@ -1,0 +1,18 @@
+修改 Ubuntu ulimit 限制
+
+最近，网站一到高峰期，CPU就会飙升到100%，但内存，IO，网络等一切正常，Google了一下，有可能是ulimit的问题，马上查看文件句柄数限制
+ulimit -n
+得到的结果是：1024，这个值对生产中的服务显得偏小。
+网上给出的解决方案，大部分是直接输入
+ulimit -SHn 51200 # 51200可自己根据应用调整
+此法缺点很明显，一旦退出登陆，设置就失效了。
+也有说直接把该命令写到/etc/rc.d/rc.local中的，今天找到一个正确的做法
+1.打开/etc/security/limits.conf，里面有很详细的注释，找到如下设置(如果没有就插入)
+* soft nofile 51200 
+* hard nofile 51200
+2.编辑/etc/pam.d/common-session，加入一行
+session required pam_limits.so
+3.编辑/etc/profile，加入
+ulimit -SHn 51200
+重启服务器，再次登陆，查看句柄数，已经正确设置为51200。
+如果有碰到类似情况，可以检查一下看看是不是文件句柄数设置太小引起的。
