@@ -1,0 +1,29 @@
+Host dev7.univs.ca
+    IdentityFile /home/zg163/.ssh/univsdev.pem  
+    User ubuntu
+    CompressionLevel 6
+    DynamicForward localhost:3128
+
+Host 10.255.4.103
+    IdentityFile /home/zg163/.ssh/gzou
+    user gzou
+
+Host 10.255.4.100
+    IdentityFile /home/zg163/.ssh/gzou
+    user gzou
+
+Host 183.60.243.220
+    IdentityFile /home/zg163/.ssh/zougang
+    User ubuntu
+
+Host 183.60.243.237
+    IdentityFile /home/zg163/.ssh/gzou
+    user ubuntu
+
+Host 183.60.243.232
+    IdentityFile /home/zg163/.ssh/gzou
+    user ubuntu
+    
+Host 183.60.243.196
+    IdentityFile /home/zg163/.ssh/gzou
+    user ubuntu
