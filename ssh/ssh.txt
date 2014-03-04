@@ -219,3 +219,5 @@
     要关闭这个后台连接，就只有用kill命令去杀掉进程。
 
 引用： http://www.ruanyifeng.com/blog/2011/12/ssh_port_forwarding.htm
+
+
