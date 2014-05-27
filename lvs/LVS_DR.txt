@@ -1,0 +1,111 @@
+                                 LVS VS/DR 负载均衡配置
+一： 机器环境
+   本次搭建主要是基于vmware内的虚拟机，操作系统ubuntu12.10。虚拟机采用bridge上网方式。所有IP均是由公司DHCP服务器自动分配。参考了网络上很多资料， 最后终于搭建成功，记录搭建过程备用。
+    调度器网卡配置：
+      eth0: inet addr 10.0.9.218 Bcast: 10.0.9.255 Mask:255.255.254.0
+
+    real server1网卡配置:
+      eth0: inet addr 10.0.9.236 Bcast 10.0.9.255 Mask 255.255.254.0
+
+    real server2网卡配置：
+      eth0: inet addr 100.9.234 Bcast 10.0.9.255  Mask 255.255.254.0
+
+    VIP: 10.0.9.3  要确定此IP没有被分配给其它机器
+
+    CIP 10.0.9.18 用来访问的客户端，目前是本机IP
+
+director 配置:
+
+#! /bin/bash
+
+RIP1=10.0.9.234
+RIP2=10.0.9.236
+VIP1=10.0.9.3
+
+case "$1" in
+    start)
+        echo "Start LVS director server"
+        /sbin/ifconfig eth0:0 $VIP1 broadcast $VIP1 netmask 255.255.255.255 up
+        /sbin/route add -host $VIP1 dev eth0:0
+
+        echo "1" > /proc/sys/net/ipv4/ip_forward
+
+        #Clear IPVS record
+        /sbin/ipvsadm -C
+        /sbin/ipvsadm -A -t $VIP1:80 -s wlc -p 120
+        /sbin/ipvsadm -a -t $VIP1:80 -r $RIP1:80 -g
+        /sbin/ipvsadm -a -t $VIP1:80 -r $RIP2:80 -g
+
+        #RUN LVS
+        /sbin/ipvsadm
+        ;;
+    stop)
+        echo "Close LVS Director server"
+        echo "0" > /proc/sys/net/ipv4/ip_forward
+        /sbin/ipvsadm -C
+        /sbin/ifconfig eth0:0 down
+        ;;
+    *)
+        echo "Usage:"
+        exit 1
+    esac
+
+ 注解：
+   1. /sbin/ifconfig eth0:0 $VIP1 broadcast $VIP1 netmask 255.255.255.255 up
+        把web服务所需的ip地址（虚拟地址）绑定在辅助接口eth0:0。
+        在LVS方案中，虚拟ip地址与普通网络接口大大不同，这点需要特别注意。
+        虚拟ip地址的广播地址是它本身，子网掩码是255.255.255.255。
+        为什么要这样呢？因为有若干机器要使用同一个ip地址，用本身做广播地址和把子网掩码设成4个255就不会造成ip地址冲突了，否则lvs将不能正常转发访问请求.
+        在搭建过程中曾按照公司的网络环境，设置广播地址和子网掩码后发现不能成功转发。
+
+   2.  /sbin/route add -host $VIP1 dev eth0:0添加主机路由，这2条可有可无，较新的linux发行版能正确路由这个主机地址.
+
+   3. echo "1" >/proc/sys/net/ipv4/ip_forward 启用ip转发功能。
+
+   4. /sbin/ipvsadm –C清空ipvs转发表。
+
+   5.  /sbin/ipvsadm -A -t $VIP1:80 -s wlc -p 120 添加一个虚拟服务.
+      服务协议是tcp(-t)；服务类型是web（$VIP1:80）；
+      -s 表示采用wlc这种调度算法转发数据包（调度算法包括：rr|wrr|lc|wlc|lblc|lblcr|dh|sh|sed|nq）；
+     -p表示连接的持续时间为120秒，这个会话时间是根据实际情况调整的，如果这个值设置得不合理，用户将得到非常糟糕的访问效果。
+
+有2个方法检验LVS/DR是否正常运行了：
+    （1）查看内核是否列出ip_vs模块；
+    （2）直接运行ipvsadm –l看输出是否有转发规则。
+
+
+RealServer 配置：
+
+#! /bin/bash
+VIP1=10.0.9.3
+case "$1" in
+    start)
+        echo "Start realserver of LVS"
+        /sbin/ifconfig lo:0 $VIP1 broadcast $VIP1 netmask 255.255.255.255 up
+        echo "1" > /proc/sys/net/ipv4/conf/lo/arp_ignore
+        echo "2" > /proc/sys/net/ipv4/conf/lo/arp_announce
+        echo "1" > /proc/sys/net/ipv4/conf/all/arp_ignore
+        echo "2" > /proc/sys/net/ipv4/conf/all/arp_announce
+        ;;
+    stop)
+        /sbin/ifconfig lo:0 down
+        echo "Close realserver of LVS"
+        echo "0" > /proc/sys/net/ipv4/conf/lo/arp_ignore
+        echo "0" > /proc/sys/net/ipv4/conf/lo/arp_announce
+        echo "0" > /proc/sys/net/ipv4/conf/all/arp_ignore
+        echo "0" > /proc/sys/net/ipv4/conf/all/arp_announce
+    *)
+        echo "Usage:"
+        exit 1
+    esac
+
+注解：
+    1. /sbin/ifconfig lo:0 $VIP1 broadcast $VIP1 netmask 255.255.255.255 up 
+        跟LVS/DR控制器一样，广播地址设置为虚拟地址本身，子网掩码4个255，不同的是，虚拟ip地址被绑定在环回（loopback）子接口，而不是物理接口的子接口
+    2.  echo "1" >/proc/sys/net/ipv4/conf/lo/arp_ignore 一共四行，其目的是关闭arp响应。
+
+
+
+参考资料：
+    http://www.cnetnews.com.cn/2008/0916/1128898.shtml
+    http://kamengwang.blog.163.com/blog/static/90945020201192742214338/
