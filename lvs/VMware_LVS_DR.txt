@@ -103,6 +103,8 @@ case "$1" in
     1. /sbin/ifconfig lo:0 $VIP1 broadcast $VIP1 netmask 255.255.255.255 up 
         跟LVS/DR控制器一样，广播地址设置为虚拟地址本身，子网掩码4个255，不同的是，虚拟ip地址被绑定在环回（loopback）子接口，而不是物理接口的子接口
     2.  echo "1" >/proc/sys/net/ipv4/conf/lo/arp_ignore 一共四行，其目的是关闭arp响应。
+    3. 为什么要绑定 VIP 呢？ 
+        因为 DR 模式原理是 LVS 调度器修改 mac 地址为真实服务器地址，报文的目的 IP 还是 VIP 没修改，网卡只会把目的 MAC 和目的 IP 都是自己的报文上送 CPU ，所以真实服务器上必须配置 VIP
 
 
 
