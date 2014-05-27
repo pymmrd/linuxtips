@@ -62,7 +62,7 @@ case "$1" in
 
    3. echo "1" >/proc/sys/net/ipv4/ip_forward 启用ip转发功能。
 
-   4. /sbin/ipvsadm –C清空ipvs转发表。
+   4. /sbin/ipvsadm –C 清空ipvs转发表。
 
    5.  /sbin/ipvsadm -A -t $VIP1:80 -s wlc -p 120 添加一个虚拟服务.
       服务协议是tcp(-t)；服务类型是web（$VIP1:80）；
