@@ -94,6 +94,7 @@ case "$1" in
         echo "0" > /proc/sys/net/ipv4/conf/lo/arp_announce
         echo "0" > /proc/sys/net/ipv4/conf/all/arp_ignore
         echo "0" > /proc/sys/net/ipv4/conf/all/arp_announce
+        ;;
     *)
         echo "Usage:"
         exit 1
@@ -105,7 +106,6 @@ case "$1" in
     2.  echo "1" >/proc/sys/net/ipv4/conf/lo/arp_ignore 一共四行，其目的是关闭arp响应。
     3. 为什么要绑定 VIP 呢？ 
         因为 DR 模式原理是 LVS 调度器修改 mac 地址为真实服务器地址，报文的目的 IP 还是 VIP 没修改，网卡只会把目的 MAC 和目的 IP 都是自己的报文上送 CPU ，所以真实服务器上必须配置 VIP
-
 
 
 参考资料：
