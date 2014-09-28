@@ -1,0 +1,210 @@
+                                                         Nginx + PHP-FPM + MySQL + phpMyAdmin on Ubuntu 12.04 33
+
+Since 3 years I’m completely into Nginx. For some reason I was always struggling with Apache, and that kept me from running my own server. But then a colleague told me about Nginx, and how great it was. So I looked into it, and the things I read were great. Compared to Apache, Nginx is smaller in size, it multiplies the performance remarkably by recducing the RAM and CPU usage for real time applications and it’s very flexible. Of course Apache will also have its advantages, but the fact I can’t come up with one says enough (about me, or Apache ;-)).
+
+So today I’m going to show you how to setup Nginx with PHP 5 and MySQL on Ubuntu 12.04. It’s really not that difficult. Let’s start with Nginx.
+1
+    
+sudo apt-get install nginx -y
+
+That’s it. But now we want to configure Nginx. I normally use Sublime Text 2 as a text editor, because VI hates me (or I hate VI, really hard to tell). But on a remote server sublime is not really an option, so I will just use nano. Feel free to use the editor you prefer.
+
+You can download the config here.
+$cd /etc/nginx
+$sudo cp nginx.conf nginx.conf.backup
+$sudo nano nginx.conf
+    user www-data;
+     
+    # As a thumb rule: One per CPU. If you are serving a large amount
+    # of static files, which requires blocking disk reads, you may want
+    # to increase this from the number of cpu_cores available on your
+    # system.
+    #
+    # The maximum number of connections for Nginx is calculated by:
+    # max_clients = worker_processes * worker_connections
+    worker_processes 1;
+     
+    # Maximum file descriptors that can be opened per process
+    # This should be > worker_connections
+    worker_rlimit_nofile 8192;
+     
+    events {
+        # When you need > 8000 * cpu_cores connections, you start optimizing
+        # your OS, and this is probably the point at where you hire people
+        # who are smarter than you, this is *a lot* of requests.
+        worker_connections 8000;
+    }
+     
+    error_log /var/log/nginx/error.log;
+     
+    pid /var/run/nginx.pid;
+     
+    http {
+        charset utf-8;
+     
+        # Set the mime-types via the mime.types external file
+        include mime.types;
+     
+        # And the fallback mime-type
+        default_type application/octet-stream;
+     
+        # Click tracking!
+        access_log /var/log/nginx/access.log;
+     
+        # Hide nginx version
+        server_tokens off;
+     
+        # ~2 seconds is often enough for HTML/CSS, but connections in
+        # Nginx are cheap, so generally it's safe to increase it
+        keepalive_timeout 20;
+     
+        # You usually want to serve static files with Nginx
+        sendfile on;
+     
+        tcp_nopush on; # off may be better for Comet/long-poll stuff
+        tcp_nodelay off; # on may be better for Comet/long-poll stuff
+     
+        server_name_in_redirect off;
+        types_hash_max_size 2048;
+     
+        gzip on;
+        gzip_http_version 1.0;
+        gzip_comp_level 5;
+        gzip_min_length 512;
+        gzip_buffers 4 8k;
+        gzip_proxied any;
+        gzip_types
+            # text/html is always compressed by HttpGzipModule
+            text/css
+            text/plain
+            text/x-component
+            application/javascript
+            application/json
+            application/xml
+            application/xhtml+xml
+            application/x-font-ttf
+            application/x-font-opentype
+            application/vnd.ms-fontobject
+            image/svg+xml
+            image/x-icon;
+     
+        # This should be turned on if you are going to have pre-compressed copies (.gz) of
+        # static files available. If not it should be left off as it will cause extra I/O
+        # for the check. It would be better to enable this in a location {} block for
+        # a specific directory:
+        # gzip_static on;
+     
+        gzip_disable "msie6";
+        gzip_vary on;
+     
+        include /etc/nginx/conf.d/*.conf;
+        include /etc/nginx/sites-enabled/*;
+    }
+
+Change the default site config. You can download the config here.
+    $ sudo cp sites-available/default sites-available/default.backup
+    $ sudo nano sites-available/default
+        server {
+            listen 80 default; ## listen for ipv4; this line is default and implied
+            listen [::]:80 default ipv6only=on; ## listen for ipv6
+         
+            # Make site accessible from http://localhost/ or server IP-address
+            server_name localhost;
+            server_name_in_redirect off;
+         
+            charset utf-8;
+         
+            access_log /usr/share/nginx/access.log;
+            error_log /usr/share/nginx/error.log;
+         
+            root /usr/share/nginx/www;
+            index index.php index.html index.htm;
+         
+            location / {
+                # First attempt to serve request as file, then
+                # as directory, then trigger 404
+                try_files $uri $uri/ =404;
+            }
+        }
+
+Now we need to reload Nginx.
+$sudo service nginx reload
+
+
+Try http://localhost/ (or http://your-server-ip-address) and hopefully you will see the welcome page of Nginx. Nice! Next, MySQL. Just follow the on screen instructions.
+    $sudo apt-get install mysql-server mysql-client -y
+
+
+To have a secure installation, we execute the following command:
+    $sudo mysql_secure_installation
+
+Follow the instructions. Start by entering your MySQL root password. If you did not set one yet, do it! It’s just that easy. So we can continue with PHP.
+    $sudo apt-get install php5-fpm php5-cli php5-mysql -y
+
+If you don’t want to run PHP from console, you can skip php5-cli. If you are planning to use the Symfony2 framework I would suggest you keep it, you will need it. By default fpm and cli use their own php.ini configuration file. I usualy want them to use the same one. If you want that too, do the following:
+    $cd /etc/php5/cli
+    $sudo mv php.ini php.ini.backup
+    $sudo ln -s ../fpm/php.ini
+
+Once php-fpm is installed, we need to configure Nginx again.
+    $cd /etc/nginx
+    $sudo nano nginx.conf
+
+Add the following to the http {} part.
+# Upstream to abstract back-end connection(s) for PHP
+    upstream php {
+        server unix:/tmp/php5-fpm.sock;
+    }
+
+Prepare the default site so it can serve PHP pages (needs to be in the server {} part).
+sudo nano /etc/nginx/sites-available/default
+    # pass the PHP scripts to FPM socket
+    location ~ \.php$ {
+        try_files $uri =404;
+     
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        # NOTE: You should have "cgi.fix_pathinfo = 0;" in php.ini
+         
+        fastcgi_pass php;
+     
+        fastcgi_index index.php;
+     
+        fastcgi_param SCRIPT_FILENAME /usr/share/nginx/www$fastcgi_script_name;
+        fastcgi_param DOCUMENT_ROOT /usr/share/nginx/www;
+     
+        # send bad requests to 404
+        fastcgi_intercept_errors on;
+     
+        include fastcgi_params;
+    }
+
+Open /etc/php5/fpm/pool.d/www.conf and look for the following line ..
+    $cd /etc/php5/fpm/pool.d
+    $sudo nano www.conf
+        listen = 127.0.0.1:9000
+
+.. and change it into ..
+        listen = /tmp/php5-fpm.sock
+
+Save and restart both Nginx and PHP-FPM.
+    $sudo service nginx restart
+    $sudo service php5-fpm restart
+
+Create a PHP file in your web root.
+    $nano /usr/share/nginx/www/index.php
+        <?php
+         
+        phpinfo();
+         
+        ?>
+
+Save the file and refresh http://localhost/ (or http://your-server-ip-address). If everything goes well you have a nice page with your PHP configuration explained, if not you can replace “/tmp/php5-fpm.sock” by “/var/run/php5-fpm.sock” in both /etc/nginx/nginx.conf and /etc/php5/fpm/pool.d/www.conf and reload nginx and php5-fpm (possible solution by Flávio Moringa, thnx Flávio!).
+
+The final thing to do is install phpMyAdmin.
+    $sudo apt-get install phpmyadmin -y
+
+Go to your web root and link phpMyAdmin.
+    $cd /usr/share/nginx/www
+    $sudo ln -s /usr/share/phpmyadmin
+
+Now you should be able to go to http://localhost/phpmyadmin (or http://your-server-ip-address/phpmyadmin). In a production environment I try not to use phpMyAdmin, and if I really need it I use another alias. For example poiul. It makes it harder for others to find it.

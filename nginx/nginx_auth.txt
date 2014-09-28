@@ -1,0 +1,43 @@
+假设我们已经在Ubuntu 12.04 Server上安装了Nginx. 现在我要给你们看看如何在Nginx上配置HTTP基本验证。
+
+step1:
+
+    打开conf/nginx.conf文件，添加下面的指令：
+
+        location / {  
+                    auth_basic "Restricted";  
+                    auth_basic_user_file pwd;  
+                    ...  
+                }  
+
+    “Restricted" 单词将会出现在第一次访问Nginx站点的弹出框内。
+
+    pwd是一个文件，位于conf目录下。注意如果你 设置的是 conf/pwd，这个pwd文件应该在conf/conf/目录下。
+
+step2:
+
+    创建pwd文件。添加你的用户名和密码（明文）
+
+    这个密码会在第三步被替换
+
+    scanv:123456
+
+step3:
+
+    安装Apache2 工具。
+
+    apt-get install apache2-utils
+
+step4:
+
+    使用Apache2工具修改密码。
+
+    htpasswd /usr/nginx/conf/pwd scanv 
+
+    你会被要求输入两次密码。
+
+    现在pwd文件内容改变了：
+
+    scanv:$apr1$I2FIVtPG$I51oSU4eatH.tJdnmxG6K0 
+
+step5: 重新启动Nginx服务。
