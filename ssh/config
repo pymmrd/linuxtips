@@ -4,17 +4,21 @@ Host dev7.univs.ca
     CompressionLevel 6
     DynamicForward localhost:3128
 
-Host 10.255.4.103
-    IdentityFile /home/zg163/.ssh/gzou
-    user gzou
+Host 54.69.89.156
+    IdentityFile /home/zg163/.ssh/axkadev.pem
+    User ubuntu
 
 Host 10.255.4.100
     IdentityFile /home/zg163/.ssh/gzou
     user gzou
 
-Host 183.60.243.220
+#Host 183.60.243.220
+#    IdentityFile /home/zg163/.ssh/zougang
+#    User ubuntu
+
+Host ssh user@10.255.4.60
     IdentityFile /home/zg163/.ssh/zougang
-    User ubuntu
+    User user
 
 Host 183.60.243.237
     IdentityFile /home/zg163/.ssh/gzou
@@ -27,3 +31,48 @@ Host 183.60.243.232
 Host 183.60.243.196
     IdentityFile /home/zg163/.ssh/gzou
     user ubuntu
+
+Host 184.22.247.67
+    IdentityFile /home/zg163/.ssh/gzou
+    user root
+
+
+Host 54.244.88.227
+    IdentityFile /home/zg163/.ssh/univsdev.pem  
+    User ubuntu
+    CompressionLevel 6
+    #DynamicForward localhost:10000
+
+Host 54.202.92.0
+    IdentityFile /home/zg163/.ssh/univsdev.pem  
+    User ubuntu
+
+Host 54.244.230.232
+    IdentityFile /home/zg163/.ssh/univsdev.pem  
+    User ubuntu
+
+Host 54.244.88.235
+    IdentityFile /home/zg163/.ssh/univsca.pem  
+    User ubuntu
+
+Host 54.187.97.252
+    IdentityFile /home/zg163/.ssh/axka.pem  
+    User ubuntu
+
+Host univs.ca
+    IdentityFile /home/zg163/.ssh/univsca.pem  
+    User ubuntu
+    CompressionLevel 6
+
+Host 10.2.252.13
+    IdentityFile /home/zg163/.ssh/zougang
+    #IdentityFile /home/zg163/.ssh/zyk.rsa
+    User zoug
+
+Host 10.0.9.128
+    IdentityFile /home/zg163/.ssh/zougang
+    User xudong
+
+Host 10.0.9.129
+    IdentityFile /home/zg163/.ssh/zougang
+    User xudong
