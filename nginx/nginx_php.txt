@@ -208,3 +208,5 @@ Go to your web root and link phpMyAdmin.
     $sudo ln -s /usr/share/phpmyadmin
 
 Now you should be able to go to http://localhost/phpmyadmin (or http://your-server-ip-address/phpmyadmin). In a production environment I try not to use phpMyAdmin, and if I really need it I use another alias. For example poiul. It makes it harder for others to find it.
+
+Reference: http://www.lonelycoder.be/nginx-php-fpm-mysql-phpmyadmin-on-ubuntu-12-04/
