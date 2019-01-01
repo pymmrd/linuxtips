@@ -1,0 +1,136 @@
+起因: 在使用tornado构建的web服务中，我们常常需要对数据库进行访问，如何数据连接才是最为友好的方式，我们一般写法可能是这样的
+
+db.py
+
+class DB(object):
+    def __init__(self):
+        self.mysql_db = MySQLDatabase(host=mysql_conf['host'], user=mysql_conf['username'], passwd=mysql_conf['password'], database='test')
+        self.cache_redis = Redis(host=redis_conf['host'], port=redis_conf['port'], db=redis_conf['db'])     
+
+
+然后
+
+import tornado.ioloop
+import tornado.web
+from db import DB
+
+db = DB()  # ***注意这里***
+class MainHandler(tornado.web.RequestHandler):
+    def get(self):
+        db.mysql_db.excute()
+        ...
+
+application = tornado.web.Application([
+    (r"/", MainHandler),
+])
+
+if __name__ == "__main__":
+    print 'starting....'
+    application.listen(8090)
+    tornado.ioloop.IOLoop.instance().start()
+
+这个写法一般情况下并不会出问题，因为tornado是基于epoll模型的，整个tornado是单线程的，逐个的处理每一个收到的Event，不会出现对数据库连接的并发访问，也就不存在线程安全问题
+
+但是db作为一个模块中的变量暴露在外部显得非常突兀，一种更内聚的做法，可能是这样
+
+from db import DB
+class MainHandler(tornado.web.RequestHandler):
+    def initialize(self):  
+        self.db = DB() # ***留意这里***
+
+    def get(self):
+        self.db.mysql_db.excute()
+        ...
+
+application = tornado.web.Application([
+    (r"/", MainHandler),
+])
+
+if __name__ == "__main__":
+    print 'starting....'
+    application.listen(8090)
+    tornado.ioloop.IOLoop.instance().start()
+
+
+initialize(self) 是 RequestHandler 中的预留方法，供子类覆盖，用于执行数据库等初始化动作, 只会在对应的handler被初始化时，调用有且一次
+
+    def initialize(self):
+        """Hook for subclass initialization.
+
+        A dictionary passed as the third argument of a url spec will be
+        supplied as keyword arguments to initialize().
+
+        Example::
+
+            class ProfileHandler(RequestHandler):
+                def initialize(self, database):
+                    self.database = database
+
+                def get(self, username):
+                    ...
+
+            app = Application([
+                (r'/user/(.*)', ProfileHandler, dict(database=database)),
+                ])
+        """
+        pass
+
+
+在上面的例子中，显然DB类被反复执行(有多个handler的情况下)，我们可以把db.py在改造下，把DB类改造成单例模式
+
+def singleton(cls, *args, **kw):
+    instances = {}
+
+    def _singleton():
+        key = str(cls) + str(os.getpid())
+        if key not in instances:
+            instances[key] = cls(*args, **kw)
+        return instances[key]
+    return _singleton
+
+class DB(object):
+    def __init__(self):
+        self.mysql_db = MySQLDatabase(host=mysql_conf['host'], user=mysql_conf['username'], passwd=mysql_conf['password'], database='test')
+        self.cache_redis = Redis(host=redis_conf['host'], port=redis_conf['port'], db=redis_conf['db'])  
+
+
+当然也可以是用官方推荐的做法
+
+# encoding=utf-8
+# !/usr/bin/python
+# std lib
+import sys
+import tornado.ioloop
+import tornado.web
+
+# our own libs
+from db import DB
+
+
+class MainHandler(tornado.web.RequestHandler):
+    def initialize(self, db):
+        '''
+            覆盖父类的initialize方法
+        '''
+        self.db = db
+
+    def get(self):
+        # use self.db to access db
+        pass
+
+if __name__ == "__main__":
+    print 'starting....'
+    port = 8888
+    db = DB()
+    application = tornado.web.Application([
+        (r"/", MainHandler, dict(db=db)),
+    ])
+    if len(sys.argv) > 1:
+        port = int(sys.argv[1])
+    application.listen(port)
+    tornado.ioloop.IOLoop.instance().start()
+
+
+参考资料：
+http://www.tornadoweb.org/en/stable/web.html#tornado.web.RequestHandler.initialize
+

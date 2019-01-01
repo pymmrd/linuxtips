@@ -1,0 +1,172 @@
+tornado即是一个http非阻塞服务器, 就要用起来, 我们将用到tornado框架 ,mongodb数据库 以及motor(mongodb的异步驱动).来简单实现tornado的非阻塞功能.
+
+其他环境支持的下载与安装
+
+1.安装mongodb
+$ sudo apt-get install update
+$ sudo apt-get install mongodb
+
+2.安装motor
+$ pip install motor
+
+非阻塞
+    
+# conf.py
+ 
+import os
+import motor
+from handlers import index, auth
+ 
+BASE_DIR = os.path.join(__file__)
+ 
+handlers = [
+  (r'^/$', index.IndexHandler),
+  (r'^/auth/register$', auth.RegisterHandler),
+  (r'^/auth/login$', auth.LoginHandler),
+]
+ 
+settings = dict(
+  debug = True,
+  template_path = os.path.join(BASE_DIR, 'templates'),
+  static_path = os.path.join(BASE_DIR, 'static'),
+)
+ 
+client = motor.MotorClient("127.0.0.1")
+db = client.meet
+
+首先在配置文件中连接数据库, client.db_name中 db_name就是数据库的名称
+    
+# handlers/__init__.py
+class BaseHandler(tornado.web.RequestHandler, TemplateRendering):
+  def initialite(self):
+    ...
+ 
+  @property
+  def db(self):
+    return self.application.db
+
+添加db()并使用property装饰,像属性一样访问数据库.
+    
+# auth.py
+ 
+import os 
+import time 
+import tornado.web
+from tornado import gen
+from . import BaseHandler
+ 
+class RegisterHandler(BaseHandler):
+  def get(self):
+    self.render_html('register.html')
+ 
+  @tornado.web.asynchronous
+  @gen.coroutine
+  def post(self):
+    username = self.get_argument('username', None)
+    email = self.get_argument('email', None)
+    password = self.get_argument('password', None)
+ 
+    data = {
+      'username': username,
+      'email': email,
+      'password': password,
+      'timestamp': time.time() * 1000,
+    }
+ 
+    if username and email:
+      yield self.db.user.insert(data)
+    self.redirect('/')
+ 
+class LoginHandler(BaseHandler):
+   
+  @tornado.web.asynchronous
+  @gen.coroutine
+  def get(self):
+    username = self.get_argument('useranme')
+    user = yield self.db.user.find_one({'username': username})
+    self.render_html('login.html', user=user)
+
+@gen.coroutine装饰使函数非阻塞, 返回一个生成器, 而不用在使用回调函数. motor也通过yield 实现异步(不然还得返回一个回调函数). 其实这个例子反映不了阻塞问题关键是时间太短.
+我们修改一下代码
+    
+# 之前
+yield self.db.user.insert(data)
+ 
+# 之后
+yield tornado.gen.Task(tornado.ioloop.IOLoop.instance().add_timeout, time.time() + 10)
+
+这里通过tornado.ioloop.IOLoop.instance().add_timeout阻塞应用, 这是time.sleep的非阻塞实现, 如果这里使用time.sleep因为是tornado是单线程会阻塞整个应用所以别的handler也无法访问.
+可以看到我在注册页面注册后,在阻塞期间点击/auth/login直接就访问了login页完成非阻塞.
+
+异步下的redirect问题
+在使用tornado的时候常常遇到一些问题, 特将遇到的问题和解决的方法写出来(这里的感谢一下帮我解答疑惑的pythonista们)
+
+1.问题
+
+我想要实现一个注册用户功能, web框架使用tornado数据库使用mongodb但在注册时出现Exception redirect的错误. 现贴下代码:
+    
+class Register(BaseHandler):
+  def get(self):
+    self.render_html('register.html')
+ 
+  @tornado.web.aynchronous
+  @gen.coroutine
+  def post(self):
+    username = self.get_argument('username')
+    email = self.get_argument('email')
+    password = self.get_argument('password')
+    captcha = self.get_argument('captcha')
+ 
+    _verify_username = yield self.db.user.find_one({'username': username})
+    if _verify_username:
+      self.flash(u'用户名已存在', 'error')
+      self.redirect('/auth/register')
+ 
+    _verify_email = yield self.db.user.find_one({'email': email})
+    if _verify_email:
+      self.flash(u'邮箱已注册', 'error')
+      self.redirect('/auth/register')
+ 
+    if captcha and captcha == self.get_secure_cookie('captcha').replace(' ',''):
+      self.flash(u'验证码输入正确', 'info')
+    else:
+      self.flash(u'验证码输入错误', 'error')
+      self.redirect('/auth/register')
+ 
+    password = haslib.md5(password + self.settings['site']).hexdigest()
+ 
+    profile = {'headimg': '', 'site': '', 'job': '', 'signature':'',
+          'github': '', 'description': ''}
+    user_profile = yield self.db.profile.insert(profile)
+    user = {'username': username, 'email': email, 'password': password,
+        'timestamp': time.time(), 'profile_id': str(user_profile)}
+ 
+    yield self.db.user.insert(user)
+    self.set_secure_cookie('user', username)
+    self.redirect('/')
+
+本想如果用户验证码输入出错就跳转到注册页面, 但问题是验证码出错也会继续执行一下代码. 虽然在self.redirect后加上self.finish会终止代码,但是因为self.redirect 函数内已有self.finish所以出现了两次报出异常终止的代码.
+因为以上原因代码不会被终结, 验证码出错用户还是会注册.
+
+2.解决方案
+    
+return self.redirect('/auth/register')
+
+或
+    
+self.redirect('/auth/register')
+return
+
+（1）segmentdefault中热心用户rsj217给出的答案
+self.finish 会关掉请求, 因为@tornado.web.aynchronous告诉tornado会一直等待请求(长链接). self.redirect等于设置了response的headers的location属性.
+
+（2）segmentdefault中热心用户依云给出的答案
+self.finish当然不会跳出函数, 不然请求结束之后还想做些事情怎么办呢.
+
+3.总结
+
+因为错把self.finish当做跳出函数出现了以上的问题
+
+    self.redirect会在request.headers 里设置location用于跳转
+    self.finish会关掉请求, 但不会跳出函数
+

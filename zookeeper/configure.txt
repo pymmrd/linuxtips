@@ -1,0 +1,41 @@
+1. 分布式部署：
+
+    与单机多实例差不多，不过不用三个目录，只需要一个目录，一个配置文件，三个不同IP，分发在不同的IP上，仍然是不同的myid。假设我有三台独立机器，那么zoo.cfg（只需要一个默认的配置文件zoo.cfg）配置文件如下所示：
+
+    tickTime=2000  
+    initLimit=5  
+    syncLimit=5  
+    dataDir=/data/apache/zookeeper/data  # 目录需要手工建立，存放 zk 数据，主要是快照  
+    clientPort=2181  
+    # dataLogDir事务日志存放目录，最好配置，事务日志的写入速度严重影响zookeeper的性能  
+    dataLogDir=/data/apache/zookeeper/datalog  
+    server.1=192.168.130.101:2888:3888  
+    server.2=192.168.130.102:2888:3888  
+    server.3=192.168.130.103:2888:3888  
+
+然后在三台机器上分别写入不同的myid：
+
+#在192.168.130.101执行下面一条
+echo "1" > /data/apache/zookeeper/data/myid
+#在192.168.130.102执行下面一条
+echo "2" > /data/apache/zookeeper/data/myid
+#在192.168.130.103执行下面一条
+echo "3" > /data/apache/zookeeper/data/myid
+
+这样分别在三台机器迅速启动zookeeper，此时不需要指定配置文件，默认配置文件就是zoo.cfg：
+
+bin/zkServer.sh start
+
+查看启动后的状态：
+
+bin/zkServer.sh status
+
+进入zookeeper的shell客户端：
+
+bin/zkCli.sh   #进入本机zookeeper的shell
+
+进入指定机器的shell客户端：
+
+bin/zkCli.sh -server 192.168.130.101
+
+在查看启动状态有错误的情况下，稍等一会再查看，因为zookeeper启动后需要一点时间选出leader。
