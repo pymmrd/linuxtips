@@ -45,7 +45,7 @@ json数据格式，当然，如果你追求效率，也可以用google protor bu
         -----------------------------------------------------------------------
 
 开启服务端:
-python chat_server_v2.py 
+$ python chat_server_v2.py 
 2019-01-01 15:22:41+0800 [-] Log opened.
 2019-01-01 15:22:41+0800 [-] ChatFactory starting on 8124
 2019-01-01 15:22:41+0800 [-] Starting factory <__main__.ChatFactory instance at 0x7f2123f35f80>

@@ -4,8 +4,7 @@
     客户端比较简单，主要是几个发送函数，基本都是以send_开头，就是主动发送消息以及验证的；
 接受从服务器的处理函数，基本以handle_开头。跟服务器端一样，接受到数据以后，先解析header，
 根据header里面的length截取数据，再根据command_id来把数据送个它的处理函数。
-　　这边弄了个定时任务，第3秒开始验证；第10秒随机发送一个单聊；第11秒随机发送一个组聊；
-第12秒发送一个群聊。
+　　这边弄了个定时任务，第3秒开始验证；第10秒随机发送一个单聊；第11秒随机发送一个组聊；第12秒发送一个群聊。
 """
 
 # StdLib imports
@@ -106,7 +105,12 @@ class EchoClient(Protocol):
         发送单聊内容
         """
         content = json.dumps(
-                dict(chat_from=chat_from, chat_to=chat_to, chat_content=chat_content))
+            dict(
+                chat_from=chat_from,
+                chat_to=chat_to,
+                chat_content=chat_content
+            )
+        )
         self.send_data(content, 2)
 
     def send_group_chat(self, chat_from, chat_to, chat_content):
