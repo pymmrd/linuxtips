@@ -11,6 +11,7 @@ ulimit -SHn 51200 # 51200可自己根据应用调整
 * soft nofile 51200 
 * hard nofile 51200
 2.编辑/etc/pam.d/common-session，加入一行
+
 session required pam_limits.so
 3.编辑/etc/profile，加入
 ulimit -SHn 51200
