@@ -4,3 +4,4 @@ message:Version information not found in metastore
 
 hive Required table missing : "DBS" in Catalog""Schema"
     http://f.dataguru.cn/hadoop-629722-1-1.html
+    hello
