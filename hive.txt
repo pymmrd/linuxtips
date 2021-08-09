@@ -1,4 +1,5 @@
 hive常见问题汇总:https://blog.csdn.net/freedomboy319/article/details/44828337
+ddfsaf
 message:Version information not found in metastore 
     https://blog.csdn.net/bitcarmanlee/article/details/52025692
 
